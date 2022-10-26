@@ -2,10 +2,11 @@ package md.utm.isa.pr.food.aggregator.dto;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class OrderDto {
+public class OrderDto implements Serializable {
     private Long orderId;
     private Long restaurantId;
     private List<Long> items;

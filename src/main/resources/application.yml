@@ -5,3 +5,7 @@ spring:
 server:
   address: ${ADDRESS:0.0.0.0}
   port: ${PORT:8002}
+
+client:
+  address: ${CLIENT_ADDRESS:localhost}
+  port: ${CLIENT_PORT:8001}
