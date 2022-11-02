@@ -1,10 +1,7 @@
 package md.utm.isa.pr.food.aggregator.controller;
 
 import lombok.RequiredArgsConstructor;
-import md.utm.isa.pr.food.aggregator.dto.ClientOrderDto;
-import md.utm.isa.pr.food.aggregator.dto.MenuDto;
-import md.utm.isa.pr.food.aggregator.dto.ResponseClientOrderDto;
-import md.utm.isa.pr.food.aggregator.dto.RestaurantDto;
+import md.utm.isa.pr.food.aggregator.dto.*;
 import md.utm.isa.pr.food.aggregator.service.FoodOrderingService;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -30,5 +27,10 @@ public class FoodOrderingController {
     @GetMapping("menu")
     public MenuDto getMenu() {
         return foodOrderingService.getMenu();
+    }
+
+    @PostMapping("rating")
+    public String postRating(@RequestBody RestaurantRating rating) throws Exception {
+        return foodOrderingService.postRating(rating);
     }
 }

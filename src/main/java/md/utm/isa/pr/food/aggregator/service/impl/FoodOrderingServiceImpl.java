@@ -29,14 +29,11 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class FoodOrderingServiceImpl implements FoodOrderingService {
-    private ConcurrentMap<Long, RestaurantDto> registeredRestaurants = new ConcurrentHashMap<>();
-    private ConcurrentMap<Long, HttpClient> endpoints = new ConcurrentHashMap<>();
-
-    private WebClient clientServiceEndpoint;
-    private ConcurrentMap<Long, ClientOrderDto> orders = new ConcurrentHashMap<>();
-
-    private ObjectMapper om = new ObjectMapper();
-    private ConcurrentMap<Long, ResponseClientOrderDto> responseOrders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, RestaurantDto> registeredRestaurants = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, HttpClient> endpoints = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, ResponseRating> restaurantRatings = new ConcurrentHashMap<>();
+    private final ObjectMapper om = new ObjectMapper();
+    private final ConcurrentMap<Long, ResponseClientOrderDto> responseOrders = new ConcurrentHashMap<>();
     @Value("${client.address}")
     private String clientAddress;
     @Value("${client.port}")
@@ -50,11 +47,11 @@ public class FoodOrderingServiceImpl implements FoodOrderingService {
     public ResponseClientOrderDto postOrder(ClientOrderDto clientOrder) throws Exception {
         log.info("Received order with client id: {}", clientOrder.getClientId());
 
-        orders.put(clientOrder.getClientId(), clientOrder);
 
         if (responseOrders.get(clientOrder.getClientId()) !=null) {
             log.error("ERROR");
         }
+
         responseOrders.put(clientOrder.getClientId(),
                 ResponseClientOrderDto.builder()
                         .clientId(clientOrder.getClientId())
@@ -89,8 +86,8 @@ public class FoodOrderingServiceImpl implements FoodOrderingService {
         }
 
 
-        log.info("{}", responseOrders.get(clientOrder.getClientId()).isPrepared());
-        return responseOrders.get(clientOrder.getClientId());
+        log.info("Client order: {}", responseOrders.get(clientOrder.getClientId()).isPrepared());
+        return responseOrders.remove(clientOrder.getClientId());
     }
 
     @Override
@@ -108,12 +105,45 @@ public class FoodOrderingServiceImpl implements FoodOrderingService {
         return menuDto;
     }
 
+    @Override
+    public String postRating(RestaurantRating rating) throws Exception {
+        log.info("Taken rating {}", rating);
+        for (PreparedOrderDto order: rating.getOrders()) {
+            RestaurantDto restaurant = registeredRestaurants.get((long)order.getRestaurantId());
+
+            HttpClient httpClient = endpoints.get(restaurant.getRestaurantId());
+            if (httpClient == null) {
+                httpClient = HttpClient.newHttpClient();
+                endpoints.put((long)order.getRestaurantId(), httpClient);
+            }
+
+            log.info("POST order {}", order);
+
+            HttpRequest request = HttpRequest.newBuilder().header( "content-type", "application/json")
+                    .uri(new URI("http://"+restaurant.getAddress() + "/v2/rating"))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(om.writeValueAsString(order).getBytes()))
+                    .build();
+
+            String json = httpClient.send(request, HttpResponse.BodyHandlers.ofString()).body();
+            ResponseRating responseRating = om.readValue(json, ResponseRating.class);
+
+            log.info("Received rating {}", responseRating);
+
+            restaurantRatings.put(responseRating.getRestaurantId(), responseRating);
+            log.info("Average simulation rating: {}", new ArrayList<>(restaurantRatings.values())
+                    .stream()
+                    .map(ResponseRating::getRestaurantAverageRating)
+                    .mapToDouble(Double::doubleValue)
+                    .average()
+                    .orElse(Double.NaN) );
+        }
+        return null;
+    }
+
     private boolean addOrderInfo(long clientId, ResponseOrderDto responseOrderDto) {
-        log.info("CLIENT {}", clientId);
         responseOrders.get(clientId).getOrders().add(responseOrderDto);
         responseOrders.get(clientId).getUnpreparedOrders().remove(responseOrderDto.getOrderId());
         if (responseOrders.get(clientId).isPrepared()) {
-            orders.remove(clientId);
             return true;
         }
         return false;
