@@ -13,4 +13,5 @@ public class OrderDto implements Serializable {
     private Integer priority;
     private Double maxWait;
     private Long createdTime;
+    private Double rating;
 }
